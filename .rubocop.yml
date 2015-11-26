@@ -1,0 +1,16 @@
+Metrics/AbcSize:
+  Max: 33
+
+Metrics/CyclomaticComplexity:
+  Max: 10
+
+# Configuration parameters: AllowURI, URISchemes.
+Metrics/LineLength:
+  Max: 100
+
+# Configuration parameters: CountComments.
+Metrics/MethodLength:
+  Max: 17
+
+Metrics/PerceivedComplexity:
+  Max: 10
