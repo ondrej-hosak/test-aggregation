@@ -7,7 +7,7 @@ module TestAggregation
     attr_reader :parts, :jobs_by_parts_aggregations
 
     class << self
-      def sum_results(results)
+      def default_sum_results(results)
         r = results.reject { |_res, count| count <= 0 }.keys.uniq
 
         # when 'errored' step exists
@@ -31,6 +31,15 @@ module TestAggregation
         return 'errored' if r.empty?
 
         fail "Unknown result for: #{r.inspect}"
+      end
+
+      def sum_results(results)
+        @sum_results_method ||= method(:default_sum_results)
+        @sum_results_method.call(results)
+      end
+
+      def sum_results=(default_sum_result_method)
+        @sum_results_method = default_sum_result_method
       end
     end
 

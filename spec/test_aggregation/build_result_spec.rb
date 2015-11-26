@@ -11,6 +11,21 @@ describe TestAggregation::BuildResults do
       end
     )
   end
+    after(:each) do
+      TestAggregation::BuildResults.sum_results =
+        TestAggregation::BuildResults.method(:default_sum_results)
+    end
+
+
+  describe 'BuildResults.sum_results=' do
+    it 'sets sum_results method' do
+      dummy = ->(_results_array) { 'MY-SUM-RESULTS' }
+      TestAggregation::BuildResults.sum_results = dummy
+      expect(TestAggregation::BuildResults.sum_results({})).to eq(
+        'MY-SUM-RESULTS'
+      )
+    end
+  end
 
   describe 'BuildResults.sum_results' do
     it 'return errored when any only when errored occuerd' do
