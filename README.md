@@ -1,3 +1,6 @@
+[![Build
+Status](https://travis-ci.org/final-ci/test-aggregation.svg)](https://travis-ci.org/final-ci/test-aggregation)
+
 # TestAggregation
 
 Simple model for reading stream of step results that can grup and aggregate
