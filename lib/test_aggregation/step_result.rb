@@ -40,13 +40,18 @@ module TestAggregation
       job = test_class.find_job(step['job_id'])
 
       step_result = step['result']
-      step_result.downcase! if step_result
       # unless RESULTS.include?(step_result)
       #  fail "Unknown step result: #{step_result.inspect}"
       # end
 
       aggregate_name = build_result.aggregate_by(job)
-      results[aggregate_name] = step_result if step_result
+      results[aggregate_name] ||= {}
+      res = results[aggregate_name]
+      res[:result] = step_result.downcase if step_result
+      if step['data']
+        res[:data] ||= {}
+        res[:data].update(step['data'])
+      end
       @last_numbers[step['uuid']] = step['number']
 
       self
@@ -56,8 +61,9 @@ module TestAggregation
       r = {}
       results.each_pair do |machine, res|
         next if opts[:machine] && opts[:machine] != machine
-        r[res] ||= 0
-        r[res] += 1
+        result = res[:result]
+        r[result] ||= 0
+        r[result] += 1
       end
       r
     end
