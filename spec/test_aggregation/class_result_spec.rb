@@ -1,6 +1,6 @@
 describe TestAggregation::ClassResult do
   let(:build_result) do
-    res = double('BuildResult', find_job: 1)
+    res = double('BuildResult', find_job: 1, step_result_callback: ->(step) { step[:result] })
     allow(res).to receive(:aggregate_by).with(anything).and_return('machine')
     res
   end

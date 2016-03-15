@@ -21,6 +21,10 @@ module TestAggregation
       test_class.build_result
     end
 
+    def step_result_callback
+      test_class.step_result_callback
+    end
+
     def parse(step)
       step_name = step['name']
       fail "Step name not defined for step: #{step.inspect}" unless step_name
@@ -39,7 +43,7 @@ module TestAggregation
 
       job = test_class.find_job(step['job_id'])
 
-      step_result = step['result']
+      step_result = step_result_callback.call(step)
       # unless RESULTS.include?(step_result)
       #  fail "Unknown step result: #{step_result.inspect}"
       # end
@@ -47,7 +51,7 @@ module TestAggregation
       aggregate_name = build_result.aggregate_by(job)
       results[aggregate_name] ||= {}
       res = results[aggregate_name]
-      res[:result] = step_result.downcase if step_result
+      res[:result] = step_result if step_result
       if step['data']
         res[:data] ||= {}
         res[:data].update(step['data'])

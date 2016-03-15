@@ -11,7 +11,13 @@ describe TestAggregation::StepResult do
     end
     res
   end
-  let(:test_class) { double('TestClass', find_job: job, build_result: build_result) }
+  let(:test_class) do
+    double('TestClass',
+           find_job: job,
+           build_result: build_result,
+           step_result_callback: ->(step) { step['result'] }
+          )
+  end
   let(:subject)    { TestAggregation::StepResult.new(test_class) }
 
   describe '#parse' do

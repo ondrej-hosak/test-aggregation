@@ -4,7 +4,7 @@ require 'test_aggregation/class_result'
 module TestAggregation
   class BuildResults
     attr_reader :build
-    attr_reader :parts, :jobs_by_parts_aggregations
+    attr_reader :parts, :jobs_by_parts_aggregations, :step_result_callback
 
     class << self
       def default_sum_results(results)
@@ -46,13 +46,17 @@ module TestAggregation
     def initialize(build,
                    job_part_callback,
                    job_aggregate_callback,
-                   step_result_callback
+                   step_serialization_callback,
+                   step_result_callback = ->(step) {
+                     step[:result] && step[:result].downcase
+                   }
                   )
       @build = build
 
       @job_part_callback = job_part_callback
       @job_aggregate_callback = job_aggregate_callback
       @step_result_callback = step_result_callback
+      @step_serialization_callback = step_serialization_callback
 
       @parts = {}
       @jobs_by_parts_aggregations = {}
@@ -67,7 +71,7 @@ module TestAggregation
     end
 
     def step_result_constructor(step_result)
-      @step_result_callback[step_result]
+      @step_serialization_callback[step_result]
     end
 
     def find_job(job_id)

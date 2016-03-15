@@ -11,6 +11,10 @@ module TestAggregation
       @test_steps = []
     end
 
+    def step_result_callback
+      build_result.step_result_callback
+    end
+
     def find_job(job_id)
       build_result.find_job(job_id)
     end
