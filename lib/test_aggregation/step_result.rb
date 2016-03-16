@@ -56,6 +56,7 @@ module TestAggregation
         res[:data] ||= {}
         res[:data].update(step['data'])
       end
+      res[:uuid] = step['uuid']
       @last_numbers[step['uuid']] = step['number']
 
       self

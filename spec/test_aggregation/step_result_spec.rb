@@ -42,7 +42,10 @@ describe TestAggregation::StepResult do
         'number' => 1,
         'uuid' => uuid
       )
-      expect(subject.results['MACHINE1']).to eq(result: 'custom-result')
+      expect(subject.results['MACHINE1']).to eq(
+        result: 'custom-result',
+        uuid: uuid
+      )
     end
 
     it 'saves `name` of the step' do
@@ -59,9 +62,9 @@ describe TestAggregation::StepResult do
       subject.parse('name' => 'NAME1', 'result' => 'created', 'number' => 1)
       subject.parse('name' => 'NAME1', 'result' => 'failed', 'number' => 1)
       subject.parse('name' => 'NAME1', 'result' => 'passed', 'number' => 1)
-      expect(subject.results).to eq('custom-XP' => { result: 'created' },
-                                    'custom-7x64' => { result: 'failed' },
-                                    'custom-8x64' => { result: 'passed' })
+      expect(subject.results).to eq('custom-XP' => { result: 'created', uuid: nil },
+                                    'custom-7x64' => { result: 'failed', uuid: nil },
+                                    'custom-8x64' => { result: 'passed', uuid: nil })
     end
   end
 
