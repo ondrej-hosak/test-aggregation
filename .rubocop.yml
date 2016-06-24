@@ -12,5 +12,11 @@ Metrics/LineLength:
 Metrics/MethodLength:
   Max: 17
 
+Metrics/ClassLength:
+  Max: 140
+
 Metrics/PerceivedComplexity:
   Max: 10
+
+Style/WordArray:
+  Enabled: false
