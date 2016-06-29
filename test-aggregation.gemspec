@@ -6,12 +6,12 @@ require 'test_aggregation/version'
 Gem::Specification.new do |spec|
   spec.name          = 'test-aggregation'
   spec.version       = TestAggregation::VERSION
-  spec.authors       = ['Lukas Svoboda']
+  spec.authors       = ['AVG Technologies && Lukas Svoboda']
   spec.email         = ['lukas.svoboda@gmail.com']
 
   spec.summary       = 'Store Test Reuslt Model for Final-CI'
   spec.description   = 'Store Test Reuslt Model for Final-CI'
-  spec.homepage      = 'http://github.com/finali-ci/test_aggregation'
+  spec.homepage      = 'http://github.com/AVGTechnologies/test_aggregation'
   spec.license       = 'MIT'
 
   # Prevent pushing this gem to RubyGems.org by setting 'allowed_push_host', or

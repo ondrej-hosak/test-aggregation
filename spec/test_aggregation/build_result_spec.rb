@@ -1,96 +1,117 @@
 describe TestAggregation::BuildResults do
   let(:job) { double('Job', id: 1, part_method: 'PART1', machine_method: 'MACHINE1') }
   let(:build) { double('Build', matrix: [job]) }
+  let(:step_data) do
+    {
+      'job_id'          => 1,
+      'name'            => 'step name',
+      'position'        => 1,
+      'class_name'      => 'class name',
+      'class_position'  => 1,
+      'result'          => 'passed'
+    }
+  end
   let(:subject) do
     TestAggregation::BuildResults.new(
       build,
       ->(job) { job.part_method },
       ->(job) { job.machine_method },
-      lambda do |test_step|
-        { description: test_step.name, results: test_step.results }
-      end
+      -> (test_step) { test_step[:result] }
     )
   end
-    after(:each) do
-      TestAggregation::BuildResults.sum_results =
-        TestAggregation::BuildResults.method(:default_sum_results)
+
+  describe '#test_case_result' do
+    it 'returns Failed when results are empty' do
+      expect(subject.test_case_result({})).to eq 'Failed'
     end
 
+    it 'returns Failed when failed occurred' do
+      expect(subject.test_case_result('passed' => 1, 'failed' => 1)).to eq 'Failed'
+    end
 
-  describe 'BuildResults.sum_results=' do
-    it 'sets sum_results method' do
-      dummy = ->(_results_array) { 'MY-SUM-RESULTS' }
-      TestAggregation::BuildResults.sum_results = dummy
-      expect(TestAggregation::BuildResults.sum_results({})).to eq(
-        'MY-SUM-RESULTS'
-      )
+    it 'returns Failed when blocked occurred' do
+      expect(subject.test_case_result('passed' => 1, 'blocked' => 1)).to eq 'Failed'
+    end
+
+    it 'returns Passed when all steps are pending or passed' do
+      expect(subject.test_case_result('passed' => 1, 'pending' => 1)).to eq 'Passed'
+    end
+
+    it 'returns Passed when only pending steps exist' do
+      expect(subject.test_case_result('pending' => 1)).to eq 'Passed'
+    end
+
+    it 'returns Loading when created steps exist' do
+      expect(subject.test_case_result('created' => 1)).to eq 'Loading'
+    end
+
+    it 'returns Errored when there are some unrecognised results' do
+      expect(subject.test_case_result('exploded' => 1)).to eq 'Errored'
     end
   end
 
-  describe 'BuildResults.sum_results' do
-    it 'return errored when any only when errored occuerd' do
-      expect(
-        TestAggregation::BuildResults.sum_results(
-          'passed' => 1,
-          'errored' => 2,
-          'failed' => 1
-        )
-      ).to eq 'errored'
-
-      expect(
-        TestAggregation::BuildResults.sum_results('passed' => 1, 'errored' => 0)
-      ).to_not eq 'errored'
+  describe '#part_result' do
+    let(:failed_job) do
+      double('Job', id: 982, part_method: 'PART1', machine_method: 'MACHINE1', state: 'failed')
+    end
+    let(:created_job) do
+      double('Job', id: 983, part_method: 'PART2', machine_method: 'MACHINE1', state: 'created')
+    end
+    let(:passed_job) do
+      double('Job', id: 984, part_method: 'PART3', machine_method: 'MACHINE1', state: 'passed')
+    end
+    let(:canceled_job) do
+      double('Job', id: 985, part_method: 'PART1', machine_method: 'MACHINE1', state: 'canceled')
     end
 
-    it 'return failed when failed occured and errored not' do
-      expect(TestAggregation::BuildResults.sum_results(
-               'passed' => 1,
-               'failed' => 1
-      )).to eq 'failed'
+    let(:build) { double('Build', matrix: [failed_job, created_job, passed_job, canceled_job]) }
+
+    it 'returns Created when there are no jobs' do
+      expect(subject.part_result('NOT-EXISTING-PART')).to eq 'Created'
     end
 
-    it 'returns passed when no failed, created and errored steps' do
-      expect(
-        TestAggregation::BuildResults.sum_results(
-          'passed' => 1,
-          'skipped' => 1,
-          'pending' => 1
-        )
-      ).to eq 'passed'
+    it 'returns Failed when there are failed jobs' do
+      step_data.merge!(
+        'job_id' => 982,
+        'result' => 'failed'
+      )
+
+      subject.parse(step_data)
+      expect(subject.part_result('PART1')).to eq 'Failed'
     end
 
-    it 'returns created when only created steps exists' do
-      expect(
-        TestAggregation::BuildResults.sum_results(
-          'created' => 1,
-          'passed' => 2
-        )
-      ).to eq 'created'
+    it 'returns Failed when there are canceled jobs' do
+      step_data.merge!(
+        'job_id' => 985,
+        'result' => 'created'
+      )
+
+      subject.parse(step_data)
+      expect(subject.part_result('PART1')).to eq 'Failed'
     end
 
-    it 'returns passed when passed are only passed, pending and skipped and passed state exists' do
-      expect(TestAggregation::BuildResults.sum_results('passed' => 1, 'pending' => 1, 'skipped' => 1)).to eq 'passed'
-      expect(TestAggregation::BuildResults.sum_results('pending' => 1, 'created' => 1)).to_not eq 'passed'
+    it 'returns Created when there are created jobs' do
+      step_data.merge!(
+        'job_id' => 983,
+        'result' => 'created'
+      )
+
+      subject.parse(step_data)
+      expect(subject.part_result('PART2')).to eq 'Created'
     end
 
-    it 'raise an exception when unknown result is provided when not errored nor failed' do
-      expect do
-        TestAggregation::BuildResults.sum_results('unknown' => 1)
-      end.to raise_error(/Unknown result/)
+    it 'returns Passed when there are passed jobs' do
+      step_data.merge!(
+        'job_id' => 984,
+        'result' => 'passed'
+      )
+
+      subject.parse(step_data)
+      expect(subject.part_result('PART3')).to eq 'Passed'
     end
   end
 
   describe '#parse' do
-    let(:step_data) do
-      {
-        'job_id'          => 1,
-        'name'            => 'step name',
-        'position'        => 1,
-        'class_name'      => 'class name',
-        'class_position'  => 1
-      }
-    end
-
     it 'raise exception when job_id is not specified' do
       expect do
         subject.parse(step_data.update('job_id' => nil))
@@ -109,7 +130,7 @@ describe TestAggregation::BuildResults do
       expect(subject.jobs_by_parts_aggregations['PART1']['MACHINE1']).to include(job)
     end
 
-    it 'calls #parse(step) on TestCaseResult instance on `job_id` part & `class_position` position' do
+    it 'called on TestCaseResult instance on `job_id` part & `class_position` position' do
       class_result_double = double('ClassResult', parse: true)
       expect(class_result_double).to receive(:parse).with(step_data)
       subject.parts['PART1'] ||= []
@@ -134,9 +155,9 @@ describe TestAggregation::BuildResults do
     end
 
     before(:each) do
-      tc1 = double('TestCase1', results_hash: { 'passed' => 2, 'errored' => 1 })
-      tc2 = double('TestCase2', results_hash: { 'passed' => 3, 'failed' => 2 })
-      tc3 = double('TestCase3', results_hash: {
+      tc1 = double('TestCase1', class_results_hash: { 'passed' => 2, 'errored' => 1 })
+      tc2 = double('TestCase2', class_results_hash: { 'passed' => 3, 'failed' => 2 })
+      tc3 = double('TestCase3', class_results_hash: {
                      'passed' => 5,
                      'errored' => 1,
                      'broken' => 3 }
@@ -159,14 +180,6 @@ describe TestAggregation::BuildResults do
     end
   end
 
-  describe '#result' do
-    it 'calls sum_results on a results_hash' do
-      expect(subject).to receive(:results_hash).and_return({})
-      expect(TestAggregation::BuildResults).to receive(:sum_results).with({})
-      subject.result
-    end
-  end
-
   describe '#as_json' do
     it 'returns array of hashes for each part' do
       expect(subject).to receive(:part_as_json).and_return({}).twice
@@ -176,16 +189,17 @@ describe TestAggregation::BuildResults do
     end
 
     it '#part_as_json' do
-      job = double('Job', id: 1)
-      expect(subject).to receive(:parts).and_return({ 'PART1' => [] }).at_least(1)
+      job = double('Job', id: 1, state: 'created')
+      expect(subject).to receive(:parts).and_return('PART1' => []).at_least(1)
       expect(subject).to receive(:jobs_by_parts_aggregations)
         .and_return('PART1' => { 'MACHINE1' => [job] }).at_least(1)
+
       expect(subject.send(:part_as_json, 'PART1')).to eq(
         name: 'PART1',
-        result: 'created',
+        result: 'Created',
         machines: [{
           os: 'MACHINE1',
-          result: 'created',
+          result: 'Created',
           id: 1
         }],
         testCases: []

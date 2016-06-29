@@ -1,7 +1,8 @@
 module TestAggregation
+  # class representing test step
   class StepResult
     # TODO: set the proper states
-    RESULTS = %w(created passed failed errored pending skipped blocked)
+    RESULTS = %w(created passed failed pending blocked).freeze
 
     attr_reader :last_numbers, :test_class, :name, :results
 
@@ -27,9 +28,9 @@ module TestAggregation
 
     def parse(step)
       step_name = step['name']
-      fail "Step name not defined for step: #{step.inspect}" unless step_name
+      raise "Step name not defined for step: #{step.inspect}" unless step_name
       if name && (step_name != name)
-        fail "Step name mishmas! (current=#{name}, step.name=#{step_name})"
+        raise "Step name mismatch! (current=#{name}, step.name=#{step_name})"
       end
 
       # For speed up, this condition could be on the top
@@ -43,14 +44,14 @@ module TestAggregation
 
       job = test_class.find_job(step['job_id'])
 
-      step_result = step_result_callback.call(step)
-      # unless RESULTS.include?(step_result)
-      #  fail "Unknown step result: #{step_result.inspect}"
-      # end
+      step_result = step['result']
+
+      raise "Unknown step result: #{step_result.inspect}" unless RESULTS.include?(step_result)
 
       aggregate_name = build_result.aggregate_by(job)
       results[aggregate_name] ||= {}
       res = results[aggregate_name]
+
       res[:result] = step_result if step_result
       if step['data']
         res[:data] ||= {}
@@ -74,7 +75,31 @@ module TestAggregation
     end
 
     def as_json
-      build_result.step_result_constructor(self)
+      all_states = results.each_with_object([]) do |(_machine, value), result|
+        result << build_result.step_status_rewrite_callback(value)
+      end
+
+      all_machines = {
+        'all' => {
+          result: build_result.machine_result(all_states),
+          message: '',
+          resultId: '00000000-0000-0000-0000-000000000000'
+        }
+      }
+
+      {
+        id: __id__, # temporary id until we can put here vCenter machine id
+        description: name,
+        machines: results.each_with_object({}) do |(k, v), result|
+          result[k] = {
+            result: build_result.step_status_rewrite_callback(v),
+            message: '',
+            resultId: v[:uuid]
+          }
+
+          result
+        end.merge(all_machines)
+      }
     end
   end
 end

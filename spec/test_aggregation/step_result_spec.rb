@@ -3,12 +3,9 @@ describe TestAggregation::StepResult do
   let(:build_result) do
     res = double('BuildResult')
     allow(res).to receive(:aggregate_by) { |x| x.machine }
-    allow(res).to receive(:step_result_constructor) do |step_result|
-      {
-        description: step_result.name,
-        results: step_result.results
-      }
-    end
+    allow(res).to receive(:machine_result) { 'Passed' }
+    allow(res).to receive(:step_status_rewrite_callback) { 'NotTested' }
+
     res
   end
   let(:test_class) do
@@ -18,21 +15,21 @@ describe TestAggregation::StepResult do
            step_result_callback: ->(step) { step['result'] }
           )
   end
-  let(:subject)    { TestAggregation::StepResult.new(test_class) }
+  let(:subject) { TestAggregation::StepResult.new(test_class) }
 
   describe '#parse' do
     it 'raise exception when name does not match' do
-      subject.parse('name' => 'NAME1', 'result' => 'custom-result')
+      subject.parse('name' => 'NAME1', 'result' => 'passed')
       expect do
-        subject.parse('name' => 'ANOTHER-NAME', 'result' => 'custom-result')
-      end.to raise_error(/Step name mishmas/)
+        subject.parse('name' => 'ANOTHER-NAME', 'result' => 'passed')
+      end.to raise_error(/Step name mismatch/)
     end
 
     it 'skip input when number is lower then the last one' do
       uuid = SecureRandom.uuid
       subject.parse(
         'name' => 'NAME1',
-        'result' => 'custom-result',
+        'result' => 'created',
         'number' => 2,
         'uuid' => uuid
       )
@@ -43,13 +40,13 @@ describe TestAggregation::StepResult do
         'uuid' => uuid
       )
       expect(subject.results['MACHINE1']).to eq(
-        result: 'custom-result',
+        result: 'created',
         uuid: uuid
       )
     end
 
     it 'saves `name` of the step' do
-      subject.parse('name' => 'NAME1', 'result' => 'custom-result')
+      subject.parse('name' => 'NAME1', 'result' => 'pending')
       expect(subject.name).to eq 'NAME1'
     end
 
@@ -72,14 +69,6 @@ describe TestAggregation::StepResult do
     it 'returns a Hash' do
       expect(subject.as_json).to be_kind_of(Hash)
     end
-
-    it 'get aggregated results by callback' do
-      expect(build_result).to receive(:step_result_constructor) { |j|
-        { res: j }
-      }
-      step = subject.parse('name' => 'NAME1', 'result' => 'custom-result')
-      expect(subject.as_json).to eq(res: step)
-    end
   end
 
   describe '#results_hash' do
@@ -95,6 +84,7 @@ describe TestAggregation::StepResult do
       subject.parse('name' => 'NAME1', 'result' => 'passed', 'number' => 1)
       subject.parse('name' => 'NAME1', 'result' => 'passed', 'number' => 1)
     end
+
     it 'counts particular results' do
       expect(subject.results_hash).to eq('created' => 1,
                                          'failed' => 1,
