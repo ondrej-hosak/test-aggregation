@@ -1,5 +1,7 @@
-[![Build
-Status](https://travis-ci.org/final-ci/test-aggregation.svg)](https://travis-ci.org/final-ci/test-aggregation)
+[![BuildStatus](https://travis-ci.org/AVGTechnologies/test-aggregation.svg)](https://travis-ci.org/AVGTechnologies/test-aggregation)
+[![Code Climate](https://codeclimate.com/github/AVGTechnologies/test-aggregation/badges/gpa.svg)](https://codeclimate.com/github/AVGTechnologies/test-aggregation)
+[![Test Coverage](https://codeclimate.com/github/AVGTechnologies/test-aggregation/badges/coverage.svg)](https://codeclimate.com/github/AVGTechnologies/test-aggregation/coverage)
+[![Issue Count](https://codeclimate.com/github/AVGTechnologies/test-aggregation/badges/issue_count.svg)](https://codeclimate.com/github/AVGTechnologies/test-aggregation)
 
 # TestAggregation
 
@@ -20,4 +22,3 @@ Bug reports and pull requests are welcome on GitHub at https://github.com/[USERN
 ## License
 
 The gem is available as open source under the terms of the [MIT License](http://opensource.org/licenses/MIT).
-
