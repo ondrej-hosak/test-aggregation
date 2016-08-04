@@ -90,6 +90,7 @@ module TestAggregation
       job_results = jobs.map(&:state).uniq
 
       return 'Failed' if job_results.include?('failed') || job_results.include?('canceled')
+      return 'Started' if job_results.include?('started')
       return 'Created' if job_results.include?('created')
 
       'Passed'

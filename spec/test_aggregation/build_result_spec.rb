@@ -63,8 +63,13 @@ describe TestAggregation::BuildResults do
     let(:canceled_job) do
       double('Job', id: 985, part_method: 'PART1', machine_method: 'MACHINE1', state: 'canceled')
     end
+    let(:started_job) do
+      double('Job', id: 986, part_method: 'PART1', machine_method: 'MACHINE1', state: 'started')
+    end
 
-    let(:build) { double('Build', matrix: [failed_job, created_job, passed_job, canceled_job]) }
+    let(:build) do
+      double('Build', matrix: [failed_job, created_job, passed_job, canceled_job, started_job])
+    end
 
     it 'returns Created when there are no jobs' do
       expect(subject.part_result('NOT-EXISTING-PART')).to eq 'Created'
@@ -98,6 +103,16 @@ describe TestAggregation::BuildResults do
 
       subject.parse(step_data)
       expect(subject.part_result('PART2')).to eq 'Created'
+    end
+
+    it 'returns Started when there are started jobs' do
+      step_data.merge!(
+        'job_id' => 986,
+        'result' => 'passed'
+      )
+
+      subject.parse(step_data)
+      expect(subject.part_result('PART1')).to eq 'Started'
     end
 
     it 'returns Passed when there are passed jobs' do
