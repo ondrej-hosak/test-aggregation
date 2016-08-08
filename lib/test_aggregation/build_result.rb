@@ -159,7 +159,6 @@ module TestAggregation
         name: part_name,
         result: part_result(part_name),
         machines: jobs_by_parts_aggregations[part_name].keys.map do |machine_name|
-          puts machine_name
           machines_as_json(part_name, machine_name)
         end,
         testCases: test_cases.map do |test_case|
