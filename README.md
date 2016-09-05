@@ -5,7 +5,7 @@
 
 # TestAggregation
 
-Simple model for reading stream of step results that can grup and aggregate
+Simple model for reading stream of step results that can group and aggregate
 results by part and machine (in feature by any param).
 
 ## Development
