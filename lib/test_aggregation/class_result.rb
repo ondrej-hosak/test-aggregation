@@ -1,4 +1,16 @@
 require 'test_aggregation/step_result'
+require 'tsort'
+
+# EXTEND HASH BY TSORT
+class Hash
+  include TSort
+
+  alias tsort_each_node each_key
+
+  def tsort_each_child(node, &block)
+    fetch(node).each(&block)
+  end
+end
 
 module TestAggregation
   # class representing test case
@@ -10,6 +22,7 @@ module TestAggregation
     def initialize(build_result)
       @build_result = build_result
       @test_steps = []
+      @added_steps = []
     end
 
     def step_result_callback
@@ -21,6 +34,7 @@ module TestAggregation
     end
 
     def class_results_hash(opts = {})
+      # append added steps to calculate proper ratio
       test_steps.each_with_object({}) do |step, obj|
         next unless step
 
@@ -33,6 +47,12 @@ module TestAggregation
     end
 
     def parse(step)
+      # store added steps to process them later
+      if step['added_step'] == true
+        @added_steps << step
+        return
+      end
+
       # FIXME: use only class_name
       class_name = step['class_name'] || step['classname']
 
@@ -53,14 +73,111 @@ module TestAggregation
       @test_steps[step_position].parse(step)
     end
 
+    def normalized_test_steps
+      # copy results of non-added steps to output
+      normalized_steps = @test_steps.map do |test_step|
+        next unless test_step
+        test_step.as_json
+      end
+
+      job_ids = @added_steps.map{ |as| as['job_id'] }.uniq
+
+      preprocessed_steps = {}
+
+      # added steps data preprocess:
+      # we need to take only names and generate ordered list
+      # data are stored in this structure
+      # Example:
+      # machineA = ['stepA', 'stepB', 'stepC']
+      # machineB = ['stepD''stepE', 'stepC']
+      # preprocessed data: [
+      #   'stepA' => [],
+      #   'stepB' => ['stepA'],
+      #   'stepC' => ['stepA', 'stepB', 'stepD', 'stepE'],
+      #   'stepD' => [],
+      #   'stepE' => ['stepD'],
+      # ]
+      job_ids.each do |job_id|
+        steps_by_job_id = @added_steps.find_all { |s| s['job_id'] == job_id }.sort_by { |s| s['position'] }
+
+        # filter by step result. We only want to store 'passed' insted of 'created' and 'passed'
+        # for each step
+        steps_by_job_id.reject! do |sbji|
+          steps_by_job_id.find { |sxx| ['passed','failed'].include?(sxx['result']) } == nil
+        end
+
+        # gather all step names in current job
+        step_names = steps_by_job_id.map { |sbji| sbji['name'] }
+
+        step_names.uniq! # TODO: needed?
+
+        # generate data with dependency
+        step_names.each_with_index do |ms, i|
+          preprocessed_steps[ms] ||= []
+          step_names.take(i).each { |name| preprocessed_steps[ms] << name }
+        end
+
+        # uniq the ancestors
+        preprocessed_steps.each { |_key, value| value.uniq! }
+      end
+
+      # apply sorting
+      sorted = []
+      begin
+        sorted = preprocessed_steps.tsort
+      rescue TSort::Cyclic
+        # TODO: process cyclic data
+      end
+
+      # format data for final-api response
+      sorted.each do |s|
+        # all_states = results.each_with_object([]) do |(_machine, value), result|
+        #   result << build_result.step_status_rewrite_callback(value)
+        # end
+
+        all_machines = {
+          'all' => {
+            result: 'Passed',
+            message: '',
+            resultId: '00000000-0000-0000-0000-000000000000'
+          }
+        }
+
+        added_machines = job_ids.each_with_object({}) do |job_id, result|
+          step_result_for_machine = @added_steps.find { |sbf| sbf['job_id'] == job_id && sbf['name'] == s }
+
+          step_obj = if step_result_for_machine
+            { result: step_result_for_machine['result'], data: step_result_for_machine['data'] }
+          else
+            { data: { 'status' => 'not_performed' } }
+          end
+
+          job = find_job(job_id)
+
+          result[build_result.aggregate_by(job)] = {
+            result: build_result.step_status_rewrite_callback(step_obj),
+            message: '',
+            resultId: job_id
+          }
+        end
+
+        added_machines.merge(all_machines)
+
+        normalized_steps << {
+          id: __id__, # temporary id until we can put here vCenter machine id
+          description: s,
+          machines: added_machines
+        }
+      end
+
+      normalized_steps
+    end
+
     def as_json
       {
         description: name,
         result: build_result.test_case_result(class_results_hash),
-        testSteps: test_steps.map do |test_step|
-          next unless test_step
-          test_step.as_json
-        end
+        testSteps: normalized_test_steps
       }
     end
   end
