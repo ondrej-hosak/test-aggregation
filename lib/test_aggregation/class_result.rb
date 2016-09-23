@@ -76,22 +76,17 @@ module TestAggregation
 
     def normalized_test_steps
       # copy results of non-added steps to output
-      normalized_steps = @test_steps.map do |test_step|
-        next unless test_step
-        test_step.as_json
-      end
+      # normalized_steps = @test_steps.map do |test_step|
+      #   next unless test_step
+      #   test_step.as_json
+      # end
 
       preprocessed_steps = preprocess_steps
 
       begin
         sorted_step_names = preprocessed_steps.tsort
 
-        # here is the tricky part, we can assamble the results
-        # or call good old parse method and compute the missing data
-
-        # for now this code assembles results
-
-        #normalized_steps += format_added_steps(sorted_step_names)
+        #generate_data_for_added_steps(sorted_step_names)
         generate_data_for_cyclic_added_steps
 
       rescue TSort::Cyclic
@@ -135,12 +130,8 @@ module TestAggregation
     # ]
     def preprocess_steps
       job_ids.each_with_object({}) do |job_id, preprocessed_hash_result|
-        steps_by_job_id = @added_steps.find_all { |s| s['job_id'] == job_id }.sort_by { |s| s['position'] }
 
-        # filter by step result. We only want to store 'passed' insted of 'created' and 'passed' for each step
-        steps_by_job_id.reject! do |sbji|
-          steps_by_job_id.find { |sxx| results_without_created.include?(sxx['result']) } != nil # TODO: really negation
-        end
+        steps_by_job_id = job_filtered_steps(job_id)
 
         # gather all step names in current job
         step_names = steps_by_job_id.map { |sbji| sbji['name'] }
@@ -159,7 +150,7 @@ module TestAggregation
     end
 
     def format_added_steps(sorted)
-      int position = 1
+      #position = 1
 
       sorted.each_with_object([]) do |s, formated_added_steps|
         # all_states = results.each_with_object([]) do |(_machine, value), result|
@@ -206,36 +197,25 @@ module TestAggregation
       result_offset = 0
 
       job_ids.each do |job_id|
-        steps_by_job_id = @added_steps.find_all { |s| s['job_id'] == job_id }.sort_by { |s| s['position'] }
 
-        # filter by step result. We only want to store 'passed' insted of 'created' and 'passed' for each step
-        puts '-'*80
-        puts results_without_created
-        puts '-'*80
-        puts steps_by_job_id
-
-        ## GROUP BY UUID TY MAKOVICEEEEEE
-        
-        steps_by_job_id.reject! do |sbji|
-          steps_by_job_id.find do |sxx|
-            results_without_created.include?(sxx['result']) && sxx['name'] == sbji['name']
-          end != nil
-        end
-
-        puts '-'*80
-        puts steps_by_job_id
+        steps_by_job_id = job_filtered_steps(job_id)
 
         steps_by_job_id.each do |sbji|
-          step_position = (sbji['position'] + result_offset) - 1 # zero indexing
+          step_position = (sbji['position'] + result_offset) - 1
+          #puts "current sbji name: #{sbji['name']}"
+          #puts "current result_offset: #{result_offset}"
+          #puts "current step_position: #{step_position}"
 
           job_ids.each do |generate_for_job_id|
-            mocked_step = not_performed_step(generate_for_job_id, sbji['name'], step_position)
+            mocked_step = not_performed_step(generate_for_job_id, sbji['name'])
 
             @test_steps[step_position] ||= StepResult.new(self)
 
             if generate_for_job_id != job_id
+              puts "mocked: #{sbji['name']}"
               @test_steps[step_position].parse(mocked_step)
             else
+              puts "NOTmocked: #{sbji['name']}"
               @test_steps[step_position].parse(sbji)
             end
           end
@@ -245,7 +225,30 @@ module TestAggregation
       end
     end
 
-    def not_performed_step(job_id, name, step_position)
+    def generate_data_for_added_steps(sorted)
+      step_position = (@added_steps.map{|s| s['position'] }.min || 1)
+
+      sorted.each do |s|
+
+        job_ids.each do |generate_for_job_id|
+          @test_steps[step_position] ||= StepResult.new(self)
+
+          found_result = @added_steps.find { |as| as['job_id'] == generate_for_job_id && as['name'] == s }
+
+          if found_result
+            puts "class: #{found_result.class}, #{found_result.first.class}"
+            @test_steps[step_position].parse(found_result.first)
+          else
+            mocked_step = not_performed_step(generate_for_job_id, s)
+            @test_steps[step_position].parse(mocked_step)
+          end
+        end
+
+        step_position += 1
+      end
+    end
+
+    def not_performed_step(job_id, name)
       {
         'uuid' => '00000000-1001-1111-1001-000000000000',
         'job_id' => job_id,
@@ -261,6 +264,17 @@ module TestAggregation
 
     def results_without_created
       StepResult::RESULTS.reject { |a| a == 'created' }
+    end
+
+    # filters out results and takes only step results: passed, failed, ...
+    def job_filtered_steps(job_id)
+      steps_by_job_id = @added_steps.find_all { |s| s['job_id'] == job_id }.sort_by { |s| s['position'] }
+
+      grouped = steps_by_job_id.group_by { |sbji| sbji['uuid'] }
+
+      grouped.each_with_object([]) do |step_group, result|
+        result << step_group.max_by { |step_results| step_results['number'] }
+      end
     end
   end
 end
