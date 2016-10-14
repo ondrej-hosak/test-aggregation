@@ -67,7 +67,7 @@ describe TestAggregation::BuildResults do
         let(:test1_data) do
           {
             input: [
-              #definition of static steps for 982
+              # definition of static steps for 982
               {
                 'job_id'          => 982,
                 'name'            => 'passed step',
@@ -104,7 +104,7 @@ describe TestAggregation::BuildResults do
                 'result'          => 'created',
                 'number'          => 0
               },
-              #definition of static steps for 983
+              # definition of static steps for 983
               {
                 'job_id'          => 983,
                 'name'            => 'passed step',
@@ -141,7 +141,7 @@ describe TestAggregation::BuildResults do
                 'result'          => 'created',
                 'number'          => 0
               },
-              #definition of static steps for 984
+              # definition of static steps for 984
               {
                 'job_id'          => 984,
                 'name'            => 'passed step',
@@ -175,9 +175,9 @@ describe TestAggregation::BuildResults do
                 'position'        => 2,
                 'class_name'      => 'B',
                 'class_position'  => 2,
-                'result'          => 'created',
+                'result'          => 'created'
               },
-              #setting up statuses of 982
+              # setting up statuses of 982
               {
                 'job_id'          => 982,
                 'name'            => 'passed step',
@@ -518,11 +518,7 @@ describe TestAggregation::BuildResults do
         let(:sample) { subject2.as_json }
 
         before :each do
-          test1_data[:input].each { |input|
-            #input.metge!({ 'uuid' => Secu})
-            #pp "adding: #{input}"
-            subject2.parse(input)
-          }
+          test1_data[:input].each { |input| subject2.parse(input) }
         end
 
         describe 'testCase A' do
@@ -532,20 +528,39 @@ describe TestAggregation::BuildResults do
             expect(machine_result(2, 'MACHINE3')).to eq 'passed'
           end
 
-          it 'has passed for MACHINE1 and pending results for other machines in dynamically added step 2(982)' do
+          it 'has passed for MACHINE1 and pending results for other' \
+              'machines in dynamically added step 2(982)' do
             expect(machine_result(3, 'MACHINE1')).to eq 'passed'
             expect(machine_result(3, 'MACHINE2')).to eq 'pending'
             expect(machine_result(3, 'MACHINE3')).to eq 'pending'
           end
 
-          it 'has passed for MACHINE3 and pending results for other machines in dynamically added step 2(983)' do
+          it 'has passed for MACHINE3 and pending results for other' \
+             'machines in dynamically added step 2(983)' do
             expect(machine_result(3, 'MACHINE1')).to eq 'passed'
             expect(machine_result(3, 'MACHINE2')).to eq 'pending'
             expect(machine_result(3, 'MACHINE3')).to eq 'pending'
           end
 
-          def machine_result(test_step_position, machine_name)
-            sample.first[:testCases].first[:testSteps][test_step_position][:machines][machine_name][:result]
+          it 'has six steps' do
+            expect(sample.first[:testCases].first[:testSteps].count).to eq 6
+          end
+
+          it 'has correctly sorted steps' do
+            names = sample.first[:testCases].first[:testSteps].map { |ts| ts[:description] }
+            expect(names).to eq [
+              'passed step',
+              'step adding another steps dynamically',
+              'dynamic shared step 1 for test case A',
+              'dynamic step 2 for test case A for 982',
+              'dynamic step 2 for test case A for 983',
+              'dynamic step 2 for test case A for 984'
+            ]
+          end
+
+          def machine_result(step_position, machine_name)
+            test_steps = sample.first[:testCases].first[:testSteps]
+            test_steps[step_position][:machines][machine_name][:result]
           end
         end
 
@@ -556,8 +571,13 @@ describe TestAggregation::BuildResults do
             expect(machine_result(5, 'MACHINE3')).to eq 'failed'
           end
 
+          it 'has six steps' do
+            expect(sample.first[:testCases].last[:testSteps].count).to eq 6
+          end
+
           def machine_result(test_step_position, machine_name)
-            sample.first[:testCases].last[:testSteps][test_step_position][:machines][machine_name][:result]
+            test_steps = sample.first[:testCases].last[:testSteps]
+            test_steps[test_step_position][:machines][machine_name][:result]
           end
         end
       end
@@ -667,8 +687,9 @@ describe TestAggregation::BuildResults do
       tc3 = double('TestCase3', class_results_hash: {
                      'passed' => 5,
                      'errored' => 1,
-                     'broken' => 3 }
-                  )
+                     'broken' => 3
+                   })
+
       allow(subject).to receive(:parts).and_return('P1' => [tc1, tc2],
                                                    'P2' => [tc3])
     end
